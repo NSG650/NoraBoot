@@ -8,7 +8,7 @@ BootEntry:
     call BootEnableA20
     
     mov bx, 0x1000
-    mov dh, 2
+    mov dh, 16
     mov dl, [bootdrive]
     call BootDiskLoad
 
