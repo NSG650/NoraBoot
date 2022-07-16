@@ -2,9 +2,16 @@ bits 16
 org 0x7c00
 
 BootEntry:
+    mov [bootdrive], dl
     mov si, message
     call BootPrint
     call BootEnableA20
+    
+    mov bx, 0x1000
+    mov dh, 2
+    mov dl, [bootdrive]
+    call BootDiskLoad
+
     mov bp, 0x9000 ; set the stack
     mov sp, bp
     cli
@@ -43,6 +50,31 @@ BootEnableA20:
 	pop ax
 	ret
 
+BootDiskLoad:
+    pusha
+    push dx
+    mov ah, 0x02
+    mov al, dh
+    mov cl, 0x02 
+    mov ch, 0x00
+    mov dh, 0x00
+
+    int 0x13
+    mov si, messagefailedtoload
+    jc BootFailure
+
+    pop dx
+    cmp al, dh
+    mov si, messagesectorerror
+    jne BootFailure
+    popa
+    ret
+
+BootFailure:
+    call BootPrint
+    jmp $
+
+
 bits 32
 BootProtectedEntry:
     mov ax, DATA_SEG
@@ -54,28 +86,16 @@ BootProtectedEntry:
 
     mov ebp, 0x90000
     mov esp, ebp
+    jmp 0x1000 ; jump into c code
 
-    mov edi, 0xB8000
-    mov ebx, filesize
-    mov ecx, file
-
-    loopA:
-        dec ebx
-        cmp ebx, 0
-        je endA
-        mov eax, [ecx]
-        mov [edi], eax
-        inc edi
-        mov word [edi], 0x1f
-        inc edi
-        inc ecx
-        jmp loopA
-    endA:
-        jmp $
+    jmp $
 
 message db "Hello from real mode!", 0xa, 0
-file incbin "file.txt"
-filesize equ $ - file + 1
+messagefailedtoload db "Failed to read disk", 0xa, 0
+messagesectorerror db "Sector Error", 0xa, 0
+message32 db "Hello from protected mode!", 0
+
+bootdrive db 0
 
 BootGdtStart:
     dd 0x0 ; 4 byte
